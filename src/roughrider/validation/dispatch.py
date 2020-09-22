@@ -1,3 +1,4 @@
+import inspect
 import typing
 import horseman.meta
 import horseman.parsing
@@ -13,13 +14,14 @@ class Dispatcher:
 
     def __init__(self, endpoint: typing.Callable):
         self.endpoint = validate_arguments(endpoint)
+        self.__signature__ = inspect.signature(endpoint)
 
     def __call__(self, overhead: horseman.meta.Overhead):
         params = overhead.environ.get('horseman.path.params', {})
         if content_type := overhead.environ.get('CONTENT_TYPE'):
             form, files = horseman.parsing.parse(
                 overhead.environ['wsgi.input'], content_type)
-            bindable = {**form, **files, **params}
+            bindable = {**form.to_dict(), **files.to_dict(), **params}
             overhead.set_data({
                 'form': form,
                 'files': files
@@ -32,14 +34,17 @@ class Dispatcher:
             for name, field in self.endpoint.model.__fields__.items():
                 annotation = field.type_
                 if isinstance(annotation, Factory):
-                    to_bind[name] = annotation(request, **bindable)
+                    to_bind[name] = annotation(overhead, **bindable)
                 elif type(annotation) is ModelMetaclass:
                     to_bind[name] = annotation(**bindable)
-                elif issubclass(annotation, horseman.meta.Overhead):
+                elif inspect.isclass(annotation) and issubclass(
+                        annotation, horseman.meta.Overhead):
                     to_bind[name] = overhead
                 elif name in bindable:
                     to_bind[name] = bindable[name]
-            return self.endpoint(**to_bind)
+
+            bound = self.__signature__.bind_partial(**to_bind)
+            return self.endpoint(*bound.args, **bound.kwargs)
         except ValidationError as e:
             return horseman.response.Response.create(
                 400, e.json(),
