@@ -24,3 +24,22 @@ class Factory(metaclass=_FactoryMeta):
 
     def __modify_schema__(self, field_schema):
         self.model.__modify_schema__(field_schema)
+
+
+class Validatable:
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v):
+        if not isinstance(v, cls):
+            raise TypeError('Request required')
+        return v
+
+    @classmethod
+    def __modify_schema__(cls, field_schema):
+        field_schema.update({
+            'title': cls.__name__
+        })
