@@ -45,6 +45,8 @@ class Dispatcher:
 
             bound = self.__signature__.bind_partial(**to_bind)
             return self.endpoint(*bound.args, **bound.kwargs)
+        except LookupError as e:
+            return horseman.response.Response.create(404, body=str(e))
         except ValidationError as e:
             return horseman.response.Response.create(
                 400, e.json(),
