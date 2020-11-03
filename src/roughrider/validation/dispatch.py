@@ -21,7 +21,7 @@ class Dispatcher:
         if content_type := overhead.environ.get('CONTENT_TYPE'):
             form, files = horseman.parsing.parse(
                 overhead.environ['wsgi.input'], content_type)
-            bindable = {**form.to_dict(), **files.to_dict(), **params}
+            bindable = {**form.dict(), **files.dict(), **params}
             overhead.set_data({
                 'form': form,
                 'files': files
